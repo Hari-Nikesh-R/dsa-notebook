@@ -1,0 +1,148 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#define V 5
+#define INF 9999
+#define MAXE 100
+
+// Node structure
+struct Node {
+    int vertex;
+    int weight;
+    struct Node* next;
+};
+
+// Edge structure
+struct Edge {
+    int src, dest, weight;
+};
+
+// Disjoint Set (Union-Find)
+struct Subset {
+    int parent;
+    int rank;
+};
+
+// Create node
+struct Node* createNode(int v, int w) {
+    struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    newNode->vertex = v;
+    newNode->weight = w;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Add edge (undirected)
+void addEdge(struct Node* adj[], int src, int dest, int weight) {
+    struct Node* newNode = createNode(dest, weight);
+    newNode->next = adj[src];
+    adj[src] = newNode;
+
+    newNode = createNode(src, weight);
+    newNode->next = adj[dest];
+    adj[dest] = newNode;
+}
+
+// Convert adjacency list to edge list
+int adjToEdges(struct Node* adj[], struct Edge edges[]) {
+    int count = 0;
+
+    for (int i = 0; i < V; i++) {
+        struct Node* temp = adj[i];
+
+        while (temp) {
+            if (i < temp->vertex) {  // avoid duplicate edges
+                edges[count].src = i;
+                edges[count].dest = temp->vertex;
+                edges[count].weight = temp->weight;
+                count++;
+            }
+            temp = temp->next;
+        }
+    }
+    return count;
+}
+
+// Find (with path compression)
+int find(struct Subset subsets[], int i) {
+    if (subsets[i].parent != i)
+        subsets[i].parent = find(subsets, subsets[i].parent);
+    return subsets[i].parent;
+}
+
+// Union
+void Union(struct Subset subsets[], int x, int y) {
+    int rootX = find(subsets, x);
+    int rootY = find(subsets, y);
+
+    if (subsets[rootX].rank < subsets[rootY].rank)
+        subsets[rootX].parent = rootY;
+    else if (subsets[rootX].rank > subsets[rootY].rank)
+        subsets[rootY].parent = rootX;
+    else {
+        subsets[rootY].parent = rootX;
+        subsets[rootX].rank++;
+    }
+}
+
+// Sort edges by weight
+int compare(const void* a, const void* b) {
+    struct Edge* e1 = (struct Edge*)a;
+    struct Edge* e2 = (struct Edge*)b;
+    return e1->weight - e2->weight;
+}
+
+// Kruskal Algorithm
+void kruskalMST(struct Node* adj[]) {
+
+    struct Edge edges[MAXE];
+    int E = adjToEdges(adj, edges);
+
+    qsort(edges, E, sizeof(edges[0]), compare);
+
+    struct Subset subsets[V];
+
+    for (int i = 0; i < V; i++) {
+        subsets[i].parent = i;
+        subsets[i].rank = 0;
+    }
+
+    printf("Edge \tWeight\n");
+
+    int count = 0;
+    int i = 0;
+
+    while (count < V - 1 && i < E) {
+        struct Edge next = edges[i++];
+
+        int x = find(subsets, next.src);
+        int y = find(subsets, next.dest);
+
+        if (x != y) {
+            printf("%d - %d \t%d\n", next.src, next.dest, next.weight);
+            Union(subsets, x, y);
+            count++;
+        }
+    }
+}
+
+// Main
+int main() {
+
+    struct Node* adj[V];
+
+    for (int i = 0; i < V; i++)
+        adj[i] = NULL;
+
+    // Same graph
+    addEdge(adj, 0, 1, 4);
+    addEdge(adj, 0, 2, 2);
+    addEdge(adj, 0, 3, 3);
+    addEdge(adj, 1, 4, 5);
+    addEdge(adj, 2, 3, 1);
+    addEdge(adj, 3, 4, 7);
+
+    kruskalMST(adj);
+
+    return 0;
+}

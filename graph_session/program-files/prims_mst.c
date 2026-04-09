@@ -1,0 +1,124 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#define V 5
+#define INF 9999
+
+// Node structure
+struct Node
+{
+    int vertex;
+    int weight;
+    struct Node *next;
+};
+
+// Create node
+struct Node *createNode(int v, int w)
+{
+    struct Node *newNode = (struct Node *)malloc(sizeof(struct Node));
+    newNode->vertex = v;
+    newNode->weight = w;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Add edge (undirected)
+void addEdge(struct Node *adj[], int src, int dest, int weight)
+{
+    struct Node *newNode = createNode(dest, weight);
+    newNode->next = adj[src];
+    adj[src] = newNode;
+
+    newNode = createNode(src, weight);
+    newNode->next = adj[dest];
+    adj[dest] = newNode;
+}
+
+// Find minimum key vertex
+int minKey(int key[], int visited[])
+{
+    int min = INF, index = -1;
+
+    for (int i = 0; i < V; i++)
+    {
+        if (!visited[i] && key[i] < min)
+        {
+            min = key[i];
+            index = i;
+        }
+    }
+    return index;
+}
+
+// Prim's Algorithm using adjacency list
+void primMST(struct Node *adj[])
+{
+
+    int key[V];
+    int parent[V];
+    int visited[V];
+
+    // Initialize
+    for (int i = 0; i < V; i++)
+    {
+        key[i] = INF;
+        visited[i] = 0;
+    }
+
+    key[0] = 0;
+    parent[0] = -1;
+
+    // Loop V-1 times
+    for (int count = 0; count < V - 1; count++)
+    {
+
+        int u = minKey(key, visited);
+        visited[u] = 1;
+
+        // Traverse adjacency list
+        struct Node *temp = adj[u];
+
+        while (temp)
+        {
+            int v = temp->vertex;
+            int weight = temp->weight;
+
+            if (!visited[v] && weight < key[v])
+            {
+                key[v] = weight;
+                parent[v] = u;
+            }
+
+            temp = temp->next;
+        }
+    }
+
+    // Print MST
+    printf("Edge \tWeight\n");
+    for (int i = 1; i < V; i++)
+    {
+        printf("%d - %d \t%d\n", parent[i], i, key[i]);
+    }
+}
+
+// Main
+int main()
+{
+
+    struct Node *adj[V];
+
+    for (int i = 0; i < V; i++)
+        adj[i] = NULL;
+
+    // Bigger graph
+    addEdge(adj, 0, 1, 4);
+    addEdge(adj, 0, 2, 2);
+    addEdge(adj, 0, 3, 3);
+    addEdge(adj, 1, 4, 5);
+    addEdge(adj, 2, 3, 1);
+    addEdge(adj, 3, 4, 7);
+
+    primMST(adj);
+
+    return 0;
+}

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dijkstra’s algorithm — step-by-step</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@450;600&display=swap" rel="stylesheet">
+  <style>
+    html { color-scheme: light; }
+    :root {
+      --bg: #f2f4f8;
+      --panel: #ffffff;
+      --line: #d4dce6;
+      --text: #1a2433;
+      --muted: #5a6a7d;
+      --accent: #156bcc;
+      --visit: #0d7a4a;
+      --relax: #a86b00;
+      --bad: #c53030;
+      --graph-canvas: #e8edf5;
+      --graph-edge: #9eb0c4;
+      --graph-edge-hi: #156bcc;
+      --node-fill: #ffffff;
+      --node-stroke: #8a9aae;
+      --settled-fill: #e4f5ec;
+      --settled-stroke: #0d7a4a;
+      --current-fill: #e8f2fc;
+      --current-stroke: #156bcc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 1.25rem 1rem 2.5rem; }
+    h1 { font-size: 1.45rem; font-weight: 700; margin: 0 0 0.4rem; letter-spacing: -0.02em; }
+    .lead { color: var(--muted); margin: 0 0 1rem; max-width: 70ch; }
+    h2 { font-size: 1.05rem; margin: 1.25rem 0 0.5rem; font-weight: 700; }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .steps-guide {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: var(--text);
+    }
+    .steps-guide li { margin: 0.35rem 0; }
+    .steps-guide strong { color: var(--accent); }
+    #graphHost {
+      display: block;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto 0.75rem;
+      border-radius: 12px;
+      background: var(--graph-canvas);
+      border: 1px solid var(--line);
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 1rem;
+      margin-top: 0.75rem;
+    }
+    .controls button {
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.45rem 0.8rem;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      cursor: pointer;
+    }
+    .controls button:hover { border-color: var(--muted); }
+    .controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .controls input[type="range"] { width: 120px; }
+    .narration {
+      min-height: 4.5rem;
+      padding: 0.75rem 0.85rem;
+      background: #f7f9fc;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font-size: 0.95rem;
+    }
+    .narration .step-num { color: var(--accent); font-weight: 700; margin-right: 0.35rem; }
+    .dist-wrap { overflow-x: auto; margin-top: 0.75rem; }
+    table.dist {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.78rem;
+    }
+    table.dist th, table.dist td {
+      border: 1px solid var(--line);
+      padding: 0.4rem 0.5rem;
+      text-align: center;
+    }
+    table.dist th { background: #eef2f7; font-weight: 600; }
+    table.dist td.settled { background: #e8f5ee; }
+    table.dist td.current { background: #e8f2fc; font-weight: 600; }
+    table.dist td.updated { color: var(--visit); font-weight: 600; }
+    code.inline { font-family: "JetBrains Mono", monospace; font-size: 0.88em; background: #eef2f7; padding: 0.1em 0.35em; border-radius: 4px; }
+    pre.code {
+      margin: 0;
+      padding: 1rem;
+      background: #1a2433;
+      color: #e8edf4;
+      border-radius: 10px;
+      overflow-x: auto;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.72rem;
+      line-height: 1.45;
+    }
+    pre.code .kw { color: #c792ea; }
+    pre.code .type { color: #82aaff; }
+    pre.code .com { color: #637777; font-style: italic; }
+    pre.code .str { color: #c3e88d; }
+    .note { font-size: 0.85rem; color: var(--muted); margin-top: 0.75rem; }
+    a.back { color: var(--accent); font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <p><a class="back" href="index.html">← BFS / DFS lab</a></p>
+    <h1>Dijkstra’s algorithm (beginner)</h1>
+    <p class="lead">
+      Shortest paths in a <strong>weighted</strong> graph with <strong>non-negative</strong> edge weights.
+      Same spirit as your guide: <code class="inline">dist[v] = min(dist[v], dist[u] + weight)</code> — we repeatedly
+      pick the closest unknown vertex and <em>relax</em> its outgoing edges.
+    </p>
+
+    <div class="card">
+      <h2>Walkthrough (read once, then use Step below)</h2>
+      <ol class="steps-guide">
+        <li><strong>Initialize</strong> — set <code class="inline">dist[source] = 0</code> and all other distances to “infinity”. Nothing is <em>settled</em> yet.</li>
+        <li><strong>Pick</strong> — among vertices that are <em>not</em> settled, choose <code class="inline">u</code> with the <strong>smallest</strong> tentative distance. If the smallest is still infinity, stop.</li>
+        <li><strong>Settle</strong> — mark <code class="inline">u</code> as settled. Its shortest distance from the source is now final (that is why weights must be ≥ 0).</li>
+        <li><strong>Relax</strong> — for each neighbor <code class="inline">v</code> of <code class="inline">u</code>, try <code class="inline">dist[u] + w</code>. If that is smaller than <code class="inline">dist[v]</code>, update <code class="inline">dist[v]</code> and remember <code class="inline">parent[v] = u</code> for path reconstruction.</li>
+        <li>Repeat pick → settle → relax until every vertex is settled or only unreachable ones remain.</li>
+      </ol>
+      <p class="note">This demo uses the simple <strong>O(V²)</strong> “scan all vertices” pick — perfect for learning. A <strong>priority queue</strong> is the standard upgrade for sparse graphs.</p>
+    </div>
+
+    <div class="card">
+      <h2>Animated graph</h2>
+      <p class="note" style="margin-top:0">Source is <strong>A</strong>. Edge numbers are weights. Green = settled; blue outline = current action; highlighted edge = relaxation attempt.</p>
+      <svg id="graphHost" viewBox="0 0 720 420" width="720" height="420" aria-label="Weighted graph"></svg>
+      <p class="narration" id="narration"><span class="step-num">Step 0.</span> Press <strong>Step</strong> to begin.</p>
+      <div class="dist-wrap">
+        <table class="dist" id="distTable" aria-label="Distance table"></table>
+      </div>
+      <div class="controls">
+        <button type="button" id="btnStep">Step</button>
+        <button type="button" id="btnAuto">Auto</button>
+        <button type="button" id="btnReset">Reset</button>
+        <label>Speed <input type="range" id="speed" min="1" max="8" value="4"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>C implementation</h2>
+      <p class="note" style="margin-top:0">Weighted adjacency list: each node stores <code class="inline">vertex</code>, <code class="inline">weight</code>, <code class="inline">next</code> — same pattern as in <code class="inline">consolidated_base_graph.md</code>, with an extra <code class="inline">int w</code>. You can also open <code class="inline">dijkstra_example.c</code> in this folder and run <code class="inline">gcc -o dijkstra dijkstra_example.c && ./dijkstra</code>.</p>
+      <pre class="code" id="cBlock"></pre>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  const LABELS = "ABCDE";
+  const N = 5;
+  const SRC = 0;
+  const INF = 1e9;
+
+  const POS = [
+    [120, 210],
+    [320, 90],
+    [320, 330],
+    [580, 90],
+    [580, 330]
+  ];
+
+  const EDGES = [
+    [0, 1, 4], [0, 2, 2],
+    [1, 3, 5], [1, 4, 10],
+    [2, 3, 3], [2, 4, 1],
+    [3, 4, 2]
+  ];
+
+  const adj = Array.from({ length: N }, () => []);
+  for (const [a, b, w] of EDGES) {
+    adj[a].push({ v: b, w });
+    adj[b].push({ v: a, w });
+  }
+  adj.forEach((list) => list.sort((x, y) => x.v - y.v));
+
+  function buildFrames() {
+    const frames = [];
+    const dist = Array(N).fill(INF);
+    const settled = Array(N).fill(false);
+    const parent = Array(N).fill(-1);
+    dist[SRC] = 0;
+
+    function snap(type, text, u, edge, updatedIdx) {
+      frames.push({
+        type,
+        text,
+        u: u ?? null,
+        edge: edge ?? null,
+        dist: dist.slice(),
+        settled: settled.slice(),
+        parent: parent.slice(),
+        updatedIdx: updatedIdx ?? null
+      });
+    }
+
+    snap("init", `Initialize: dist[A]=0, all others ∞. Source is ${LABELS[SRC]}.`, null, null, null);
+
+    for (let iter = 0; iter < N; iter++) {
+      let u = -1;
+      let best = INF;
+      for (let i = 0; i < N; i++) {
+        if (!settled[i] && dist[i] < best) {
+          best = dist[i];
+          u = i;
+        }
+      }
+      if (u < 0 || best >= INF) {
+        snap("done", "No more reachable unsettled vertices — done.", null, null, null);
+        break;
+      }
+
+      snap(
+        "pick",
+        `Pick ${LABELS[u]}: smallest tentative distance among unsettled nodes (${best === INF ? "∞" : best}).`,
+        u,
+        null,
+        null
+      );
+
+      settled[u] = true;
+      snap(
+        "settle",
+        `Settle ${LABELS[u]} — its shortest distance from A is now final.`,
+        u,
+        null,
+        null
+      );
+
+      for (const { v, w } of adj[u]) {
+        if (settled[v]) continue;
+        const nd = dist[u] + w;
+        const improved = nd < dist[v];
+        if (improved) {
+          snap(
+            "relax",
+            `Relax edge ${LABELS[u]}—${LABELS[v]} (weight ${w}): dist[${LABELS[v]}] = min(${dist[v] >= INF ? "∞" : dist[v]}, ${dist[u]} + ${w}) = ${nd} → update.`,
+            u,
+            [u, v],
+            v
+          );
+          dist[v] = nd;
+          parent[v] = u;
+        } else {
+          snap(
+            "relax_skip",
+            `Relax ${LABELS[u]}→${LABELS[v]} (weight ${w}): ${dist[u]} + ${w} = ${nd} is not better than current dist[${LABELS[v]}]=${dist[v] >= INF ? "∞" : dist[v]} — skip.`,
+            u,
+            [u, v],
+            null
+          );
+        }
+      }
+    }
+
+    return frames;
+  }
+
+  const frames = buildFrames();
+  let fi = 0;
+  let autoTimer = null;
+  let autoOn = false;
+
+  const svg = document.getElementById("graphHost");
+  const narration = document.getElementById("narration");
+  const distTable = document.getElementById("distTable");
+  const btnStep = document.getElementById("btnStep");
+  const btnAuto = document.getElementById("btnAuto");
+  const btnReset = document.getElementById("btnReset");
+  const speedEl = document.getElementById("speed");
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function edgeKey(a, b) {
+    return a < b ? `${a}-${b}` : `${b}-${a}`;
+  }
+
+  function weightBetween(a, b) {
+    for (const [x, y, w] of EDGES) {
+      if ((x === a && y === b) || (x === b && y === a)) return w;
+    }
+    return null;
+  }
+
+  function renderGraph(frame) {
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const settled = frame.settled;
+    const dist = frame.dist;
+    const cur = frame.u;
+    const hi = frame.edge;
+
+    const drawn = new Set();
+    for (const [a, b, w] of EDGES) {
+      const k = edgeKey(a, b);
+      if (drawn.has(k)) continue;
+      drawn.add(k);
+      const [x1, y1] = POS[a];
+      const [x2, y2] = POS[b];
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      let stroke = cssVar("--graph-edge");
+      let sw = 2;
+      if (hi && ((hi[0] === a && hi[1] === b) || (hi[0] === b && hi[1] === a))) {
+        stroke = cssVar("--graph-edge-hi");
+        sw = 4;
+      }
+      line.setAttribute("stroke", stroke);
+      line.setAttribute("stroke-width", sw);
+      svg.appendChild(line);
+
+      const mx = (x1 + x2) / 2;
+      const my = (y1 + y2) / 2;
+      const tw = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      tw.setAttribute("x", mx);
+      tw.setAttribute("y", my - 6);
+      tw.setAttribute("text-anchor", "middle");
+      tw.setAttribute("fill", cssVar("--text"));
+      tw.setAttribute("font-family", "JetBrains Mono, monospace");
+      tw.setAttribute("font-size", "13");
+      tw.setAttribute("font-weight", "600");
+      tw.textContent = String(w);
+      svg.appendChild(tw);
+    }
+
+    for (let i = 0; i < N; i++) {
+      const [cx, cy] = POS[i];
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("cx", cx);
+      circle.setAttribute("cy", cy);
+      circle.setAttribute("r", 26);
+      let fill = cssVar("--node-fill");
+      let stroke = cssVar("--node-stroke");
+      if (settled[i]) {
+        fill = cssVar("--settled-fill");
+        stroke = cssVar("--settled-stroke");
+      }
+      const curHighlight =
+        cur === i &&
+        (frame.type === "pick" || frame.type === "settle" || frame.type === "relax" || frame.type === "relax_skip");
+      if (curHighlight) {
+        fill = cssVar("--current-fill");
+        stroke = cssVar("--current-stroke");
+        circle.setAttribute("stroke-width", 3);
+      } else {
+        circle.setAttribute("stroke-width", 2.5);
+      }
+      circle.setAttribute("fill", fill);
+      circle.setAttribute("stroke", stroke);
+      g.appendChild(circle);
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", cx);
+      t.setAttribute("y", cy + 5);
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("fill", cssVar("--text"));
+      t.setAttribute("font-family", "JetBrains Mono, monospace");
+      t.setAttribute("font-size", "17");
+      t.setAttribute("font-weight", "600");
+      t.textContent = LABELS[i];
+      g.appendChild(t);
+      svg.appendChild(g);
+    }
+  }
+
+  function renderTable(frame) {
+    const dist = frame.dist;
+    const settled = frame.settled;
+    const cur = frame.u;
+    const upd = frame.updatedIdx;
+    let head = "<thead><tr><th>Vertex</th>";
+    for (let i = 0; i < N; i++) head += `<th>${LABELS[i]}</th>`;
+    head += "</tr></thead><tbody>";
+    head += "<tr><th>dist</th>";
+    for (let i = 0; i < N; i++) {
+      const d = dist[i];
+      const cell = d >= INF ? "∞" : String(d);
+      let cls = "";
+      if (settled[i]) cls = "settled";
+      if (
+        cur === i &&
+        (frame.type === "pick" || frame.type === "settle" || frame.type === "relax" || frame.type === "relax_skip")
+      )
+        cls = "current";
+      if (upd === i) cls += " updated";
+      head += `<td class="${cls.trim()}">${cell}</td>`;
+    }
+    head += "</tr><tr><th>settled?</th>";
+    for (let i = 0; i < N; i++) {
+      head += `<td>${settled[i] ? "✓" : ""}</td>`;
+    }
+    head += "</tr></tbody>";
+    distTable.innerHTML = head;
+  }
+
+  function applyFrame() {
+    const f = frames[fi];
+    if (!f) return;
+    narration.innerHTML = `<span class="step-num">Step ${fi}.</span>${f.text}`;
+    renderGraph(f);
+    renderTable(f);
+    btnStep.disabled = fi >= frames.length - 1;
+    if (fi >= frames.length - 1) stopAuto();
+  }
+
+  function stopAuto() {
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = null;
+    autoOn = false;
+    btnAuto.textContent = "Auto";
+  }
+
+  function startAuto() {
+    stopAuto();
+    autoOn = true;
+    btnAuto.textContent = "Stop";
+    const tick = () => Math.max(150, 950 - Number(speedEl.value) * 100);
+    autoTimer = setInterval(() => {
+      if (fi >= frames.length - 1) {
+        stopAuto();
+        return;
+      }
+      fi++;
+      applyFrame();
+    }, tick());
+  }
+
+  btnStep.addEventListener("click", () => {
+    if (fi < frames.length - 1) {
+      fi++;
+      applyFrame();
+    }
+  });
+  btnAuto.addEventListener("click", () => {
+    if (autoOn) stopAuto();
+    else {
+      if (fi >= frames.length - 1) {
+        fi = 0;
+        applyFrame();
+      }
+      startAuto();
+    }
+  });
+  btnReset.addEventListener("click", () => {
+    stopAuto();
+    fi = 0;
+    applyFrame();
+  });
+  speedEl.addEventListener("input", () => {
+    if (autoOn) {
+      stopAuto();
+      startAuto();
+    }
+  });
+
+  const cSource = String.raw`#include <stdio.h>
+#include <stdlib.h>
+#include <limits.h>
+
+#define MAXV 100
+#define INF INT_MAX
+
+/* Weighted edge in adjacency list (same idea as struct Node in your guide) */
+struct WNode {
+    int vertex;
+    int weight;
+    struct WNode* next;
+};
+
+struct WNode* createWNode(int v, int w) {
+    struct WNode* n = (struct WNode*)malloc(sizeof(struct WNode));
+    n->vertex = v;
+    n->weight = w;
+    n->next = NULL;
+    return n;
+}
+
+void addWEdge(struct WNode* adj[], int u, int v, int w) {
+    struct WNode* a = createWNode(v, w);
+    a->next = adj[u];
+    adj[u] = a;
+    struct WNode* b = createWNode(u, w);
+    b->next = adj[v];
+    adj[v] = b;
+}
+
+/* Naive Dijkstra O(V^2) — good for learning; use a heap for sparse graphs */
+void dijkstra(struct WNode* adj[], int V, int src, int dist[], int parent[]) {
+    int settled[MAXV];
+    for (int i = 0; i < V; i++) {
+        dist[i] = INF;
+        parent[i] = -1;
+        settled[i] = 0;
+    }
+    dist[src] = 0;
+
+    for (int count = 0; count < V; count++) {
+        int u = -1;
+        int best = INF;
+        for (int i = 0; i < V; i++) {
+            if (!settled[i] && dist[i] < best) {
+                best = dist[i];
+                u = i;
+            }
+        }
+        if (u < 0 || best == INF)
+            break;
+
+        settled[u] = 1;
+
+        for (struct WNode* t = adj[u]; t != NULL; t = t->next) {
+            int v = t->vertex;
+            int w = t->weight;
+            if (settled[v]) continue;
+            if (dist[u] != INF && dist[u] + w < dist[v]) {
+                dist[v] = dist[u] + w;
+                parent[v] = u;
+            }
+        }
+    }
+}
+
+void printPath(int parent[], int j) {
+    if (j < 0) return;
+    printPath(parent, parent[j]);
+    printf("%d ", j);
+}
+
+int main(void) {
+    int V = 5;
+    struct WNode* adj[MAXV] = { NULL };
+
+    /* Same graph as the animation (0=A ... 4=E) */
+    addWEdge(adj, 0, 1, 4);
+    addWEdge(adj, 0, 2, 2);
+    addWEdge(adj, 1, 3, 5);
+    addWEdge(adj, 1, 4, 10);
+    addWEdge(adj, 2, 3, 3);
+    addWEdge(adj, 2, 4, 1);
+    addWEdge(adj, 3, 4, 2);
+
+    int dist[MAXV];
+    int parent[MAXV];
+    int src = 0;
+
+    dijkstra(adj, V, src, dist, parent);
+
+    for (int i = 0; i < V; i++) {
+        if (dist[i] == INF)
+            printf("%d: unreachable\\n", i);
+        else {
+            printf("%d: distance %d, path: ", i, dist[i]);
+            printPath(parent, i);
+            printf("\\n");
+        }
+    }
+    return 0;
+}`;
+
+  document.getElementById("cBlock").textContent = cSource;
+
+  fi = 0;
+  applyFrame();
+})();
+  </script>
+</body>
+</html>

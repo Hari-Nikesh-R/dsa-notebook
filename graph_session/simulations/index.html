@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graph traversal lab — BFS & DFS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <style>
+    html { color-scheme: light; }
+    :root {
+      --bg: #f2f4f8;
+      --panel: #ffffff;
+      --line: #d4dce6;
+      --text: #1a2433;
+      --muted: #5a6a7d;
+      --accent: #156bcc;
+      --visit: #0d7a4a;
+      --frontier: #a86b00;
+      --bad: #c53030;
+      --node: #eef1f6;
+      --graph-canvas: #e8edf5;
+      --graph-edge: #9eb0c4;
+      --graph-edge-active: #156bcc;
+      --graph-node-fill: #ffffff;
+      --graph-node-stroke: #8a9aae;
+      --graph-visited-fill: #e4f5ec;
+      --graph-visited-stroke: #0d7a4a;
+      --graph-frontier-fill: #fff6e0;
+      --graph-frontier-stroke: #c4922a;
+      --graph-current-stroke: #156bcc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "DM Sans", system-ui, sans-serif;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.25rem 1rem 2rem;
+    }
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 700;
+      margin: 0 0 0.35rem;
+      letter-spacing: -0.02em;
+    }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+    .modes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .modes button {
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      padding: 0.5rem 0.85rem;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .modes button:hover { border-color: var(--muted); }
+    .modes button.active {
+      background: #e8f2fc;
+      border-color: var(--accent);
+      color: #0d4a8f;
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 1rem 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem 1rem;
+    }
+    .hint { color: var(--muted); font-size: 0.82rem; max-width: 52ch; }
+    #graphHost {
+      width: 100%;
+      max-width: 720px;
+      margin: 0 auto;
+      display: block;
+      border-radius: 12px;
+      background: var(--graph-canvas);
+      border: 1px solid var(--line);
+      cursor: default;
+      user-select: none;
+    }
+    #graphHost.interactive circle.node { cursor: pointer; }
+    .controls button, .controls label {
+      font-family: inherit;
+      font-size: 0.85rem;
+    }
+    .controls button {
+      padding: 0.45rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .controls button:hover { border-color: var(--muted); }
+    .controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+    .controls input[type="range"] { width: 120px; vertical-align: middle; }
+    .mono {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.8rem;
+      background: var(--bg);
+      padding: 0.65rem 0.75rem;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      min-height: 2.5rem;
+      word-break: break-all;
+    }
+    .status { font-size: 0.88rem; color: var(--muted); }
+    .puzzle-head { margin-bottom: 0.75rem; }
+    .puzzle-head strong { color: var(--frontier); }
+    .choices {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+    .choices button {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.65rem;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--bg);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .choices button:hover:not(:disabled) { border-color: var(--accent); }
+    .choices button:disabled { opacity: 0.35; cursor: default; }
+    .choices button.wrong { animation: shake 0.35s ease; border-color: var(--bad); color: var(--bad); }
+    .choices button.correct-flash { border-color: var(--visit); color: var(--visit); }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+    .score { font-variant-numeric: tabular-nums; color: var(--visit); font-weight: 600; }
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem 1.25rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 0.75rem;
+    }
+    .legend span::before {
+      content: "";
+      display: inline-block;
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      margin-right: 0.35rem;
+      vertical-align: middle;
+    }
+    .lg-cur::before { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+    .lg-vis::before { background: var(--visit); }
+    .lg-fr::before { background: var(--frontier); opacity: 0.85; }
+    footer { margin-top: 1.5rem; font-size: 0.75rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Graph traversal lab</h1>
+    <p class="sub">Step through BFS and DFS, then test yourself with “what’s next?” puzzles. <a href="dijkstra.html" style="color:var(--accent);font-weight:600">Dijkstra tutorial →</a></p>
+
+    <div class="modes" id="modeBar" role="tablist" aria-label="Mode">
+      <button type="button" class="active" data-mode="bfs-sim">BFS simulation</button>
+      <button type="button" data-mode="dfs-sim">DFS simulation</button>
+      <button type="button" data-mode="bfs-puzzle">BFS puzzle</button>
+      <button type="button" data-mode="dfs-puzzle">DFS puzzle</button>
+    </div>
+
+    <div class="card">
+      <svg id="graphHost" viewBox="0 0 720 400" width="720" height="400" aria-label="Graph"></svg>
+      <div class="legend">
+        <span class="lg-cur">Current / focus</span>
+        <span class="lg-vis">Visited</span>
+        <span class="lg-fr">In queue or stack</span>
+      </div>
+    </div>
+
+    <div class="card" id="simPanel">
+      <div class="row controls">
+        <button type="button" id="btnStep">Step</button>
+        <button type="button" id="btnAuto">Auto</button>
+        <button type="button" id="btnReset">Reset</button>
+        <label>Speed <input type="range" id="speed" min="1" max="8" value="4"></label>
+      </div>
+      <p class="hint" id="simHint">Click a node to set the start vertex, then use Step or Auto.</p>
+      <p class="status" id="simStatus"></p>
+      <p class="mono" id="structureOut">Queue: []</p>
+    </div>
+
+    <div class="card" id="puzzlePanel" hidden>
+      <div class="puzzle-head">
+        <span id="puzzleTitle"></span><br>
+        <span class="hint" id="puzzleSub"></span>
+      </div>
+      <p class="mono" id="puzzleOrder">Order: </p>
+      <div class="choices" id="choices"></div>
+      <p class="row">
+        <span>Score: <span class="score" id="score">0</span></span>
+        <span class="status" id="puzzleMsg"></span>
+      </p>
+      <div class="row controls" style="margin-top:0.5rem">
+        <button type="button" id="btnNewPuzzle">New puzzle</button>
+      </div>
+    </div>
+
+    <footer>Undirected graph; neighbors are explored in alphabetical order (A, B, C …). BFS uses a queue; DFS uses an explicit stack (push neighbors so the smallest unvisited ID is popped next).</footer>
+  </div>
+
+  <script>
+(function () {
+  const LABELS = "ABCDEF";
+  const N = 6;
+  const POS = [
+    [120, 80], [360, 80], [600, 80],
+    [120, 300], [360, 300], [600, 300]
+  ];
+  const EDGES = [
+    [0, 1], [1, 2], [0, 3], [1, 4], [2, 5], [3, 4], [4, 5]
+  ];
+
+  const adj = Array.from({ length: N }, () => []);
+  for (const [a, b] of EDGES) {
+    adj[a].push(b);
+    adj[b].push(a);
+  }
+  adj.forEach((list) => list.sort((x, y) => x - y));
+
+  function neighbors(u) {
+    return adj[u];
+  }
+
+  function buildBFSFrames(start) {
+    const frames = [];
+    const visited = new Set();
+    const q = [];
+    visited.add(start);
+    q.push(start);
+    frames.push({
+      kind: "init",
+      text: `Start at ${LABELS[start]} — enqueue ${LABELS[start]}`,
+      visited: new Set(visited),
+      queue: q.slice(),
+      stack: [],
+      current: null,
+      edge: null,
+      order: []
+    });
+    const order = [];
+    while (q.length) {
+      const u = q.shift();
+      order.push(u);
+      frames.push({
+        kind: "visit",
+        text: `Dequeue & visit ${LABELS[u]}`,
+        visited: new Set(visited),
+        queue: q.slice(),
+        stack: [],
+        current: u,
+        edge: null,
+        order: order.slice()
+      });
+      for (const v of neighbors(u)) {
+        if (!visited.has(v)) {
+          visited.add(v);
+          q.push(v);
+          frames.push({
+            kind: "enqueue",
+            text: `From ${LABELS[u]}: discover ${LABELS[v]} → enqueue`,
+            visited: new Set(visited),
+            queue: q.slice(),
+            stack: [],
+            current: u,
+            edge: [u, v],
+            order: order.slice()
+          });
+        }
+      }
+    }
+    frames.push({
+      kind: "done",
+      text: "BFS complete",
+      visited: new Set(visited),
+      queue: [],
+      stack: [],
+      current: null,
+      edge: null,
+      order: order.slice()
+    });
+    return frames;
+  }
+
+  function buildDFSFrames(start) {
+    const frames = [];
+    const visited = new Set();
+    const stack = [start];
+    frames.push({
+      kind: "init",
+      text: `Push start ${LABELS[start]} onto stack`,
+      visited: new Set(visited),
+      queue: [],
+      stack: stack.slice(),
+      current: null,
+      edge: null,
+      order: []
+    });
+    const order = [];
+    while (stack.length) {
+      const u = stack.pop();
+      if (visited.has(u)) {
+        frames.push({
+          kind: "skip",
+          text: `Pop ${LABELS[u]} — already visited, skip`,
+          visited: new Set(visited),
+          queue: [],
+          stack: stack.slice(),
+          current: u,
+          edge: null,
+          order: order.slice()
+        });
+        continue;
+      }
+      visited.add(u);
+      order.push(u);
+      frames.push({
+        kind: "visit",
+        text: `Pop & visit ${LABELS[u]}`,
+        visited: new Set(visited),
+        queue: [],
+        stack: stack.slice(),
+        current: u,
+        edge: null,
+        order: order.slice()
+      });
+      const toPush = neighbors(u).filter((v) => !visited.has(v));
+      for (let i = toPush.length - 1; i >= 0; i--) {
+        const v = toPush[i];
+        stack.push(v);
+        frames.push({
+          kind: "push",
+          text: `From ${LABELS[u]}: push ${LABELS[v]}`,
+          visited: new Set(visited),
+          queue: [],
+          stack: stack.slice(),
+          current: u,
+          edge: [u, v],
+          order: order.slice()
+        });
+      }
+    }
+    frames.push({
+      kind: "done",
+      text: "DFS complete",
+      visited: new Set(visited),
+      queue: [],
+      stack: [],
+      current: null,
+      edge: null,
+      order: order.slice()
+    });
+    return frames;
+  }
+
+  function visitOrderFromFrames(frames) {
+    return frames.filter((f) => f.kind === "visit").map((f) => f.current);
+  }
+
+  const svg = document.getElementById("graphHost");
+  const simPanel = document.getElementById("simPanel");
+  const puzzlePanel = document.getElementById("puzzlePanel");
+  const structureOut = document.getElementById("structureOut");
+  const simStatus = document.getElementById("simStatus");
+  const simHint = document.getElementById("simHint");
+  const btnStep = document.getElementById("btnStep");
+  const btnAuto = document.getElementById("btnAuto");
+  const btnReset = document.getElementById("btnReset");
+  const speedEl = document.getElementById("speed");
+  const modeBar = document.getElementById("modeBar");
+
+  let mode = "bfs-sim";
+  let startNode = 0;
+  let frames = [];
+  let fi = 0;
+  let autoTimer = null;
+  let autoOn = false;
+
+  function edgeKey(a, b) {
+    return a < b ? `${a}-${b}` : `${b}-${a}`;
+  }
+
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+
+  function renderGraph(frame) {
+    const visited = frame ? frame.visited : new Set();
+    const qset = new Set(frame && frame.queue ? frame.queue : []);
+    const sset = new Set(frame && frame.stack ? frame.stack : []);
+    const frontier = mode.includes("bfs") ? qset : sset;
+    const cur = frame ? frame.current : null;
+    const e = frame && frame.edge;
+
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+    const drawn = new Set();
+    for (const [a, b] of EDGES) {
+      const k = edgeKey(a, b);
+      if (drawn.has(k)) continue;
+      drawn.add(k);
+      const [x1, y1] = POS[a];
+      const [x2, y2] = POS[b];
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      let stroke = cssVar("--graph-edge");
+      let sw = 2;
+      if (e && ((e[0] === a && e[1] === b) || (e[0] === b && e[1] === a))) {
+        stroke = cssVar("--graph-edge-active");
+        sw = 3;
+      }
+      line.setAttribute("stroke", stroke);
+      line.setAttribute("stroke-width", sw);
+      svg.appendChild(line);
+    }
+
+    for (let i = 0; i < N; i++) {
+      const [cx, cy] = POS[i];
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.setAttribute("data-id", String(i));
+      const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+      circle.setAttribute("class", "node");
+      circle.setAttribute("cx", cx);
+      circle.setAttribute("cy", cy);
+      circle.setAttribute("r", 28);
+      let fill = cssVar("--graph-node-fill");
+      let stroke = cssVar("--graph-node-stroke");
+      if (visited.has(i)) {
+        fill = cssVar("--graph-visited-fill");
+        stroke = cssVar("--graph-visited-stroke");
+      }
+      if (frontier.has(i) && !visited.has(i)) {
+        fill = cssVar("--graph-frontier-fill");
+        stroke = cssVar("--graph-frontier-stroke");
+      }
+      if (cur === i) {
+        stroke = cssVar("--graph-current-stroke");
+        circle.setAttribute("filter", "url(#glow)");
+      }
+      circle.setAttribute("fill", fill);
+      circle.setAttribute("stroke", stroke);
+      circle.setAttribute("stroke-width", 2.5);
+      g.appendChild(circle);
+      const t = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      t.setAttribute("x", cx);
+      t.setAttribute("y", cy + 6);
+      t.setAttribute("text-anchor", "middle");
+      t.setAttribute("fill", cssVar("--text"));
+      t.setAttribute("font-family", "JetBrains Mono, monospace");
+      t.setAttribute("font-size", "18");
+      t.setAttribute("font-weight", "600");
+      t.textContent = LABELS[i];
+      g.appendChild(t);
+      svg.appendChild(g);
+    }
+
+    let defs = svg.querySelector("defs");
+    if (!defs) {
+      defs = document.createElementNS("http://www.w3.org/2000/svg", "defs");
+      const filter = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+      filter.setAttribute("id", "glow");
+      filter.setAttribute("x", "-50%");
+      filter.setAttribute("y", "-50%");
+      filter.setAttribute("width", "200%");
+      filter.setAttribute("height", "200%");
+      const fe = document.createElementNS("http://www.w3.org/2000/svg", "feGaussianBlur");
+      fe.setAttribute("stdDeviation", "1.6");
+      fe.setAttribute("result", "b");
+      const feMerge = document.createElementNS("http://www.w3.org/2000/svg", "feMerge");
+      const n1 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+      n1.setAttribute("in", "b");
+      const n2 = document.createElementNS("http://www.w3.org/2000/svg", "feMergeNode");
+      n2.setAttribute("in", "SourceGraphic");
+      feMerge.appendChild(n1);
+      feMerge.appendChild(n2);
+      filter.appendChild(fe);
+      filter.appendChild(feMerge);
+      defs.appendChild(filter);
+      svg.insertBefore(defs, svg.firstChild);
+    }
+  }
+
+  function rebuildFrames() {
+    if (mode === "bfs-sim") frames = buildBFSFrames(startNode);
+    else if (mode === "dfs-sim") frames = buildDFSFrames(startNode);
+    fi = 0;
+    stopAuto();
+    applyFrame();
+  }
+
+  function applyFrame() {
+    const frame = frames[fi];
+    if (!frame) return;
+    renderGraph(frame);
+    const isBfs = mode.includes("bfs");
+    structureOut.textContent = isBfs
+      ? `Queue (front → back): [ ${frame.queue.map((i) => LABELS[i]).join(", ")} ]`
+      : `Stack (top → bottom): [ ${frame.stack.map((i) => LABELS[i]).join(", ")} ]`;
+    simStatus.textContent = frame.text;
+    btnStep.disabled = fi >= frames.length - 1;
+    if (fi >= frames.length - 1) stopAuto();
+  }
+
+  function stopAuto() {
+    if (autoTimer) clearInterval(autoTimer);
+    autoTimer = null;
+    autoOn = false;
+    btnAuto.textContent = "Auto";
+    btnAuto.setAttribute("aria-pressed", "false");
+  }
+
+  function startAuto() {
+    stopAuto();
+    autoOn = true;
+    btnAuto.textContent = "Stop";
+    btnAuto.setAttribute("aria-pressed", "true");
+    const tick = () => {
+      const sp = Number(speedEl.value) || 4;
+      return Math.max(120, 900 - sp * 100);
+    };
+    autoTimer = setInterval(() => {
+      if (fi >= frames.length - 1) {
+        stopAuto();
+        return;
+      }
+      fi++;
+      applyFrame();
+    }, tick());
+  }
+
+  btnStep.addEventListener("click", () => {
+    if (fi < frames.length - 1) {
+      fi++;
+      applyFrame();
+    }
+  });
+
+  btnAuto.addEventListener("click", () => {
+    if (autoOn) stopAuto();
+    else {
+      if (fi >= frames.length - 1) {
+        fi = 0;
+        applyFrame();
+      }
+      startAuto();
+    }
+  });
+
+  btnReset.addEventListener("click", () => {
+    stopAuto();
+    fi = 0;
+    applyFrame();
+  });
+
+  speedEl.addEventListener("input", () => {
+    if (autoOn) {
+      stopAuto();
+      startAuto();
+    }
+  });
+
+  svg.addEventListener("click", (ev) => {
+    if (!mode.endsWith("-sim")) return;
+    const g = ev.target.closest("g[data-id]");
+    if (!g) return;
+    const id = Number(g.getAttribute("data-id"));
+    if (Number.isNaN(id)) return;
+    startNode = id;
+    rebuildFrames();
+  });
+
+  function setMode(m) {
+    mode = m;
+    modeBar.querySelectorAll("button").forEach((b) => {
+      b.classList.toggle("active", b.dataset.mode === m);
+    });
+    const sim = m.endsWith("-sim");
+    simPanel.hidden = !sim;
+    puzzlePanel.hidden = !sim;
+    svg.classList.toggle("interactive", sim);
+    stopAuto();
+    if (sim) {
+      simHint.textContent =
+        "Click a node to set the start vertex, then use Step or Auto.";
+      rebuildFrames();
+    } else {
+      renderGraph(null);
+      startPuzzle();
+    }
+  }
+
+  modeBar.addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-mode]");
+    if (!b) return;
+    setMode(b.dataset.mode);
+  });
+
+  const puzzleTitle = document.getElementById("puzzleTitle");
+  const puzzleSub = document.getElementById("puzzleSub");
+  const puzzleOrder = document.getElementById("puzzleOrder");
+  const choicesEl = document.getElementById("choices");
+  const scoreEl = document.getElementById("score");
+  const puzzleMsg = document.getElementById("puzzleMsg");
+  const btnNewPuzzle = document.getElementById("btnNewPuzzle");
+
+  let puzzleScore = 0;
+  let puzzleStart = 0;
+  let puzzleOrderList = [];
+  let puzzleStep = 0;
+  let puzzleIsBfs = true;
+
+  function shuffle(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  function startPuzzle() {
+    puzzleScore = 0;
+    scoreEl.textContent = "0";
+    puzzleMsg.textContent = "";
+    newRound(true);
+  }
+
+  function newRound(fullReset) {
+    if (fullReset) {
+      puzzleStart = Math.floor(Math.random() * N);
+      puzzleIsBfs = mode === "bfs-puzzle";
+      const fr = puzzleIsBfs ? buildBFSFrames(puzzleStart) : buildDFSFrames(puzzleStart);
+      puzzleOrderList = visitOrderFromFrames(fr);
+      puzzleStep = 0;
+    }
+    puzzleTitle.innerHTML =
+      `<strong>${puzzleIsBfs ? "BFS" : "DFS"}</strong> from <strong>${LABELS[puzzleStart]}</strong>`;
+    puzzleSub.textContent =
+      "Which node is visited next? (Alphabetical neighbor order, same rules as simulation.)";
+    renderPuzzleState();
+  }
+
+  function renderPuzzleState() {
+    if (puzzleStep >= puzzleOrderList.length) {
+      puzzleOrder.textContent =
+        "Order: " + puzzleOrderList.map((i) => LABELS[i]).join(" → ") + " ✓";
+      choicesEl.innerHTML = "";
+      puzzleMsg.textContent = "Round complete — New puzzle for a fresh start.";
+      const fakeFrame = {
+        visited: new Set(puzzleOrderList),
+        queue: [],
+        stack: [],
+        current: null,
+        edge: null
+      };
+      renderGraph(fakeFrame);
+      return;
+    }
+    const soFar = puzzleOrderList.slice(0, puzzleStep);
+    const next = puzzleOrderList[puzzleStep];
+    puzzleOrder.textContent =
+      "Order: " +
+      (soFar.length ? soFar.map((i) => LABELS[i]).join(" → ") + " → " : "") +
+      "?";
+
+    const wrongPool = [];
+    for (let i = 0; i < N; i++) {
+      if (!soFar.includes(i) && i !== next) wrongPool.push(i);
+    }
+    shuffle(wrongPool);
+    const picks = [next, ...wrongPool.slice(0, 3)];
+    shuffle(picks);
+    choicesEl.innerHTML = "";
+    picks.forEach((id) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = LABELS[id];
+      btn.addEventListener("click", () => onChoice(id, next, btn));
+      choicesEl.appendChild(btn);
+    });
+
+    const vis = new Set(soFar);
+    renderGraph({
+      visited: vis,
+      queue: [],
+      stack: [],
+      current: soFar.length ? soFar[soFar.length - 1] : null,
+      edge: null
+    });
+  }
+
+  function onChoice(guess, next, btn) {
+    if (guess === next) {
+      puzzleScore += 10 + puzzleStep * 2;
+      scoreEl.textContent = String(puzzleScore);
+      btn.classList.add("correct-flash");
+      puzzleMsg.textContent = "Correct!";
+      choicesEl.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      setTimeout(() => {
+        puzzleStep++;
+        puzzleMsg.textContent = "";
+        newRound(false);
+      }, 450);
+    } else {
+      puzzleMsg.textContent = `Not quite — next was ${LABELS[next]}.`;
+      btn.classList.add("wrong");
+      setTimeout(() => btn.classList.remove("wrong"), 400);
+    }
+  }
+
+  btnNewPuzzle.addEventListener("click", () => {
+    puzzleMsg.textContent = "";
+    newRound(true);
+  });
+
+  setMode("bfs-sim");
+})();
+  </script>
+</body>
+</html>

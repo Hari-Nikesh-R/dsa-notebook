@@ -1,0 +1,112 @@
+#include <stdio.h>
+#include <stdlib.h>
+
+#define V 4
+#define MAX 10
+
+// Node structure
+struct Node {
+    int vertex;
+    struct Node* next;
+};
+
+// Queue
+struct Queue {
+    int items[MAX];
+    int front, rear;
+};
+
+// Create node
+struct Node* createNode(int v) {
+    struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    newNode->vertex = v;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Queue functions
+void initQueue(struct Queue* q) {
+    q->front = 0;
+    q->rear = -1;
+}
+
+void enqueue(struct Queue* q, int val) {
+    q->items[++q->rear] = val;
+}
+
+int dequeue(struct Queue* q) {
+    return q->items[q->front++];
+}
+
+int isEmpty(struct Queue* q) {
+    return q->front > q->rear;
+}
+
+// Add edge (DIRECTED)
+void addEdge(struct Node* adj[], int src, int dest) {
+    struct Node* newNode = createNode(dest);
+    newNode->next = adj[src];
+    adj[src] = newNode;
+}
+
+// Topological Sort (Kahn’s Algorithm)
+void topoSort(struct Node* adj[]) {
+
+    int indegree[V] = {0};
+
+    // Step 1: Calculate indegree
+    for (int i = 0; i < V; i++) {
+        struct Node* temp = adj[i];
+        while (temp) {
+            indegree[temp->vertex]++;
+            temp = temp->next;
+        }
+    }
+
+    // Step 2: Push indegree 0 nodes
+    struct Queue q;
+    initQueue(&q);
+
+    for (int i = 0; i < V; i++) {
+        if (indegree[i] == 0)
+            enqueue(&q, i);
+    }
+
+    // Step 3: Process queue
+    printf("Topological Order: ");
+
+    while (!isEmpty(&q)) {
+        int current = dequeue(&q);
+        printf("%d ", current);
+
+        struct Node* temp = adj[current];
+
+        while (temp) {
+            indegree[temp->vertex]--;
+
+            if (indegree[temp->vertex] == 0) {
+                enqueue(&q, temp->vertex);
+            }
+
+            temp = temp->next;
+        }
+    }
+}
+
+// Main
+int main() {
+    struct Node* adj[V];
+
+    for (int i = 0; i < V; i++)
+        adj[i] = NULL;
+
+    // Directed graph
+    addEdge(adj, 0, 1);
+    addEdge(adj, 0, 2);
+    addEdge(adj, 1, 3);
+    addEdge(adj, 2, 3);
+
+    topoSort(adj);
+
+    return 0;
+}

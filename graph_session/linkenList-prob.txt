@@ -1,0 +1,45 @@
+Steps
+1. Sort all the edges by weight
+2. Pick the smallest edge.
+3. Add it only if it does not create a cycle.
+4. Repeat
+
+Adjacent List
+{
+0 -> 1 -> 2
+1 -> 0
+2 -> 0 -> 3
+3 -> 2
+}
+
+Edge List
+(0,1,2)
+(1,2)
+(2,0,3)
+
+
+Initially
+
+{0} {1} {2} {3} {4}
+
+{0} {1} {2,3} {4}
+
+If (find(u) != find(v))
+     addEdge
+     union(u,v)
+Else
+		skip edge
+
+
+
+
+
+
+
+
+
+
+
+
+
+

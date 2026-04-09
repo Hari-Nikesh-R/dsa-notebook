@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graphs — From representation to classic algorithms</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/theme/white.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=Source+Code+Pro:wght@450;600&display=swap" rel="stylesheet">
+  <style>
+    .reveal .slides { text-align: left; }
+    .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
+      font-family: "Source Serif 4", Georgia, serif;
+      text-transform: none;
+      font-weight: 700;
+    }
+    .reveal { font-family: "Source Sans 3", system-ui, sans-serif; }
+    .reveal pre, .reveal code {
+      font-family: "Source Code Pro", ui-monospace, monospace;
+    }
+    .reveal pre {
+      width: 100%;
+      font-size: 0.48em;
+      line-height: 1.35;
+      box-shadow: none;
+      border: 1px solid #d4dce6;
+      border-radius: 8px;
+    }
+    .reveal code { color: #0d4a8f; }
+    .reveal .muted { color: #5a6a7d; font-size: 0.85em; }
+    .reveal .tag {
+      display: inline-block;
+      font-size: 0.55em;
+      font-weight: 600;
+      padding: 0.2em 0.5em;
+      border-radius: 4px;
+      background: #e8f2fc;
+      color: #0d4a8f;
+      vertical-align: middle;
+      margin-left: 0.35em;
+    }
+    .reveal section img { border: none; }
+    .reveal .small { font-size: 0.75em; }
+    .reveal ul.compact li { margin: 0.35em 0; }
+    .reveal .callout {
+      border-left: 4px solid #156bcc;
+      padding-left: 0.85em;
+      margin: 0.8em 0;
+      background: #f7f9fc;
+      padding: 0.65em 0.85em;
+      border-radius: 0 8px 8px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+      <section>
+        <h1>Graphs in C</h1>
+        <h3 style="font-weight:600;color:#5a6a7d">From representation to Dijkstra, topological sort, and MST</h3>
+        <p class="muted" style="margin-top:1.5em">Aligned with <code>consolidated_base_graph.md</code> (adjacency list).</p>
+      </section>
+
+      <section>
+        <h2>How this deck is ordered</h2>
+        <ol class="compact">
+          <li class="fragment"><strong>Foundation</strong> — what graphs are, types, storing them in C</li>
+          <li class="fragment"><strong>Traversal</strong> — DFS &amp; BFS (needed intuition for almost everything else)</li>
+          <li class="fragment"><strong>Shortest paths</strong> — unweighted → Dijkstra (weighted)</li>
+          <li class="fragment"><strong>Directed acyclic graphs</strong> — topological sort</li>
+          <li class="fragment"><strong>Minimum spanning trees</strong> — Prim &amp; Kruskal</li>
+          <li class="fragment"><strong>Applications</strong> — traffic / routing vs TSP (what’s easy vs hard)</li>
+        </ol>
+      </section>
+
+      <section>
+        <section>
+          <h2>1 · Graph basics</h2>
+          <p>A <strong>graph</strong> is:</p>
+          <ul class="compact">
+            <li class="fragment"><strong>Vertices (nodes)</strong> — things we care about</li>
+            <li class="fragment"><strong>Edges</strong> — relationships between pairs of vertices</li>
+          </ul>
+          <p class="fragment muted">We write <em>G = (V, E)</em>: vertex set <em>V</em>, edge set <em>E</em>.</p>
+        </section>
+        <section>
+          <h3>Kinds of graphs</h3>
+          <ul class="compact">
+            <li class="fragment"><strong>Undirected</strong> — edge {A,B}: travel both ways</li>
+            <li class="fragment"><strong>Directed</strong> — edge A → B: one direction only</li>
+            <li class="fragment"><strong>Weighted</strong> — each edge has a cost / length / time</li>
+          </ul>
+          <p class="fragment callout">The <em>same</em> C representation idea extends: unweighted lists → add a <code>weight</code> field when needed.</p>
+        </section>
+      </section>
+
+      <section>
+        <section>
+          <h2>2 · Storing a graph in C</h2>
+          <p class="muted">From your consolidated guide: C has no built-in map <code>{ id: [neighbors] }</code>.</p>
+          <p class="fragment"><strong>Adjacency list</strong> — one linked list per vertex: only store neighbors that exist (good for sparse graphs).</p>
+        </section>
+        <section>
+          <h3>Core struct (unweighted)</h3>
+          <pre><code class="language-c" data-trim>struct Node {
+    int vertex;
+    struct Node* next;
+};
+
+struct Node* adj[MAXV];  /* adj[i] = head of list of neighbors of i */</code></pre>
+          <p class="small muted">Picture: <code>adj[0] → 1 → 2 → NULL</code>, <code>adj[1] → 0 → NULL</code> for an undirected edge 0–1 and 0–2.</p>
+        </section>
+        <section>
+          <h3><code>addEdge</code> — undirected</h3>
+          <pre><code class="language-c" data-trim data-noescape>void addEdge(struct Node* adj[], int src, int dest) {
+    struct Node* newNode = createNode(dest);
+    newNode->next = adj[src];
+    adj[src] = newNode;
+
+    newNode = createNode(src);
+    newNode->next = adj[dest];
+    adj[dest] = newNode;
+}</code></pre>
+          <ul class="compact small">
+            <li class="fragment">Insert at <strong>head</strong>: <code>newNode->next = adj[src]; adj[src] = newNode;</code> — O(1)</li>
+            <li class="fragment">Two insertions because the edge works <strong>both ways</strong></li>
+          </ul>
+        </section>
+        <section>
+          <h3>Directed &amp; weighted variants</h3>
+          <ul class="compact">
+            <li class="fragment"><strong>Directed:</strong> only insert on <code>adj[src]</code> (one list update)</li>
+            <li class="fragment"><strong>Weighted:</strong> add <code>int weight;</code> to the struct; Dijkstra / Prim / Kruskal all consume weights from lists or edge arrays</li>
+          </ul>
+        </section>
+      </section>
+
+      <section>
+        <section>
+          <h2>3 · Why traversals first?</h2>
+          <p>Almost every graph algorithm is either:</p>
+          <ul class="compact">
+            <li class="fragment">a controlled <strong>DFS</strong> / <strong>BFS</strong>, or</li>
+            <li class="fragment">a <strong>greedy</strong> loop that picks “best” edges/vertices using ideas similar to BFS layers or DFS order</li>
+          </ul>
+        </section>
+        <section>
+          <h3>DFS (depth-first)</h3>
+          <ul class="compact">
+            <li class="fragment">Go deep, then backtrack — stack / recursion</li>
+            <li class="fragment">Useful: connectivity, path existence, cycle detection, <strong>topological sort</strong> (on DAGs)</li>
+          </ul>
+        </section>
+        <section>
+          <h3>BFS (breadth-first)</h3>
+          <ul class="compact">
+            <li class="fragment">Expand in “waves” — queue (FIFO)</li>
+            <li class="fragment"><strong>Unweighted</strong> shortest path: first time you reach a node is along a shortest route (in edge count)</li>
+          </ul>
+          <p class="fragment callout">Weighted shortest paths need more than raw BFS — that leads to Dijkstra.</p>
+        </section>
+      </section>
+
+      <section>
+        <section>
+          <h2>4 · Shortest paths</h2>
+          <table class="small" style="border-collapse:collapse;width:100%">
+            <tr style="border-bottom:1px solid #ccc"><th style="text-align:left;padding:0.3em">Setting</th><th style="text-align:left;padding:0.3em">Typical algorithm</th></tr>
+            <tr><td style="padding:0.35em">Unweighted</td><td style="padding:0.35em">BFS from source</td></tr>
+            <tr><td style="padding:0.35em">Non-negative weights</td><td style="padding:0.35em">Dijkstra</td></tr>
+            <tr><td style="padding:0.35em">General weights (no neg cycles)</td><td style="padding:0.35em">Bellman–Ford</td></tr>
+          </table>
+        </section>
+        <section>
+          <h3>Dijkstra’s algorithm <span class="tag">weighted · non-negative</span></h3>
+          <p class="fragment">Maintain tentative <code>dist[v]</code> from source. Repeatedly:</p>
+          <ol class="compact">
+            <li class="fragment">Pick unsettled <code>u</code> with <strong>minimum</strong> <code>dist[u]</code></li>
+            <li class="fragment">Finalize <code>u</code> (why safe? no negative edges)</li>
+            <li class="fragment"><strong>Relax:</strong> <code>dist[v] = min(dist[v], dist[u] + w(u,v))</code> for neighbors <code>v</code></li>
+          </ol>
+          <p class="fragment muted small">Naive pick-min is O(V²); a min-heap gives roughly O(E log V) for sparse graphs.</p>
+          <p class="fragment small"><a href="simulations/dijkstra.html">Step-by-step animation + C code → <code>simulations/dijkstra.html</code></a></p>
+        </section>
+      </section>
+
+      <section>
+        <section>
+          <h2>5 · Prerequisite: DAG</h2>
+          <p><strong>Directed acyclic graph</strong> — directed, and <strong>no directed cycles</strong>.</p>
+          <p class="fragment">Models dependencies: task B after A, course Y after X, build steps.</p>
+          <p class="fragment callout">If there is a cycle, you cannot order all tasks consistently → no topological ordering.</p>
+        </section>
+        <section>
+          <h3>Topological sort</h3>
+          <p class="fragment">A linear ordering of vertices such that every edge <em>u → v</em> has <code>u</code> before <code>v</code>.</p>
+          <p class="fragment"><strong>Idea (DFS):</strong> run DFS; push vertex onto a stack when you’re “done” with it; reverse stack (or output finish times descending).</p>
+          <p class="fragment"><strong>Idea (Kahn / BFS):</strong> start with indegree 0; repeatedly remove a vertex, decrement indegrees of successors.</p>
+        </section>
+        <section>
+          <h3>Representation note</h3>
+          <p class="small">Use the same <strong>adjacency list</strong> for outgoing edges; maintain an <code>indegree[]</code> array for Kahn. Your <code>struct Node</code> pattern still applies — only the interpretation (directed vs undirected) changes.</p>
+        </section>
+      </section>
+
+      <section>
+        <section>
+          <h2>6 · Minimum spanning tree (MST)</h2>
+          <p><strong>Spanning tree:</strong> connected, no cycles, includes all vertices.</p>
+          <p class="fragment"><strong>MST:</strong> among spanning trees, one with <strong>minimum total edge weight</strong>.</p>
+          <p class="fragment muted small">Classic setting: <strong>undirected</strong>, connected, weighted graph.</p>
+        </section>
+        <section>
+          <h3>Prim’s algorithm</h3>
+          <ul class="compact">
+            <li class="fragment">Start from any root vertex</li>
+            <li class="fragment">Grow a tree: repeatedly add the <strong>cheapest edge</strong> that connects the tree to a <strong>new</strong> vertex</li>
+            <li class="fragment">Implementation: track min cost to attach each fringe vertex (priority queue)</li>
+          </ul>
+          <p class="fragment muted small">Feels like Dijkstra, but key is <strong>minimum edge cost to the growing tree</strong>, not distance from a single source.</p>
+        </section>
+        <section>
+          <h3>Kruskal’s algorithm</h3>
+          <ul class="compact">
+            <li class="fragment">Sort <strong>all edges</strong> by weight ascending</li>
+            <li class="fragment">Scan edges; add an edge if it connects two different components (no cycle)</li>
+            <li class="fragment"><strong>Union–find (DSU)</strong> tracks components efficiently</li>
+          </ul>
+        </section>
+        <section>
+          <h3>Prim vs Kruskal</h3>
+          <table class="small" style="border-collapse:collapse;width:100%">
+            <tr style="border-bottom:1px solid #ccc"><th style="text-align:left;padding:0.3em"></th><th style="text-align:left;padding:0.3em">Prim</th><th style="text-align:left;padding:0.3em">Kruskal</th></tr>
+            <tr><td style="padding:0.35em">View</td><td style="padding:0.35em">Grows one tree from a root</td><td style="padding:0.35em">Merges components via global cheapest edges</td></tr>
+            <tr><td style="padding:0.35em">Best when</td><td style="padding:0.35em">Dense graphs, adjacency-friendly</td><td style="padding:0.35em">Sparse graphs, edge list + sort</td></tr>
+          </table>
+        </section>
+      </section>
+
+      <section>
+        <section>
+          <h2>7 · Application: traffic &amp; redirection</h2>
+          <p class="fragment">Road network ≈ weighted graph: weights = time, distance, or congestion score.</p>
+          <ul class="compact">
+            <li class="fragment"><strong>Shortest / fastest route:</strong> Dijkstra (or A* with a heuristic) from source to destination</li>
+            <li class="fragment"><strong>Redirection / closure:</strong> remove or raise weight on blocked edges; re-run routing; multi-source variants for “distance to nearest hospital”</li>
+            <li class="fragment"><strong>MST:</strong> connect all junctions with minimum cable/road cost (design), not the same as pairwise shortest paths</li>
+          </ul>
+        </section>
+        <section>
+          <h2>8 · Application: traveling salesman (TSP)</h2>
+          <p><strong>Problem:</strong> visit every city once, return to start, <strong>minimize total tour length</strong>.</p>
+          <p class="fragment callout">TSP is <strong>NP-hard</strong> — unlike MST or Dijkstra, no known polynomial-time algorithm that solves every instance optimally.</p>
+          <ul class="compact">
+            <li class="fragment"><strong>MST</strong> is a <em>lower-bound building block</em> in some approximations, not the tour itself</li>
+            <li class="fragment">Practical tools: heuristics (nearest neighbor, 2-opt), integer programming, branch-and-bound</li>
+          </ul>
+          <p class="fragment muted small">Lesson: same graph model — vastly different difficulty depending on the question.</p>
+        </section>
+      </section>
+
+      <section>
+        <h2>Concept map</h2>
+        <pre style="font-size:0.42em;line-height:1.4;border:none;background:#f7f9fc;padding:0.8em;border-radius:8px">Adjacency list (C)
+        │
+        ├─► Traverse: DFS ──────────► topo sort (DAG), cycles, connectivity
+        │
+        ├─► Traverse: BFS ─────────► shortest path (unweighted)
+        │
+        ├─► Dijkstra ──────────────► shortest path (non-neg weights) — routing
+        │
+        ├─► Prim / Kruskal ────────► MST — connect everything cheaply
+        │
+        └─► TSP ───────────────────► still a graph; need heuristics / exact exponential methods</pre>
+      </section>
+
+      <section>
+        <h2>References in this repo</h2>
+        <ul class="compact">
+          <li><code>consolidated_base_graph.md</code> — base representation, BFS/DFS, <code>hasPath</code></li>
+          <li><code>simulations/index.html</code> — interactive BFS / DFS</li>
+          <li><code>simulations/dijkstra.html</code> — Dijkstra animation + C</li>
+        </ul>
+      </section>
+
+    </div>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.6.1/dist/reveal.js"></script>
+  <script>
+    Reveal.initialize({
+      hash: true,
+      slideNumber: 'c/t',
+      transition: 'slide',
+      progress: true,
+      center: false,
+      width: 1100,
+      height: 640,
+      margin: 0.08
+    });
+  </script>
+</body>
+</html>
