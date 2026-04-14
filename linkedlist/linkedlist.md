@@ -85,7 +85,61 @@ We can also write function to delete, search and Identifying the size of the lin
 # Entire code
 
 ```java
+public class LinkedList {
 
+    // Creating the structure(Blueprint) of the node.
+    public static class Node {
+        int data;
+        Node next;
+
+        public Node(int data) {
+            this.data = data;
+            this.next = null;
+        }
+    }
+
+    private Node head;
+
+    public void insertAtEnd(int data) {
+        // This is how we create a new node.
+        Node newNode = new Node(data);
+
+         if (head == null) {
+             head = newNode;
+             return;
+         }
+
+         // We don't want to lose the head, so we will create a temp
+         Node temp = head;
+         while (temp.next != null) {
+             temp = temp.next;
+         }
+
+         temp.next = newNode;
+    }
+
+    public void display() {
+        // We don't want to lose the head, so we will create a temp
+        Node temp = head;
+
+        while (temp != null) {
+            System.out.print(temp.data + " -> ");
+            temp = temp.next;
+        }
+        System.out.print("NULL");
+    }
+
+    public static void main(String[] args) {
+        LinkedList list = new LinkedList();
+        list.insertAtEnd(12);
+        list.insertAtEnd(10);
+        list.insertAtEnd(11);
+
+        list.display();
+    }
+
+
+}
 ```
 
 ## Programs to practice
