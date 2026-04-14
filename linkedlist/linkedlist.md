@@ -82,6 +82,12 @@ We write a display function to print all the element in the linkedList
 We can also write function to delete, search and Identifying the size of the linkedList.<br>
 <strong>Can take this as exercise.</strong>
 
+# Entire code
+
+```java
+
+```
+
 ## Programs to practice
 
 https://leetcode.com/problem-list/linked-list
